@@ -1,6 +1,7 @@
 import java.util.*;
-import java.io.*;
-import java.math.*;
+import java.util.stream.Collectors;
+
+import static java.lang.Math.*;
 
 /**
  * Auto-generated code below aims at helping you parse
@@ -17,20 +18,19 @@ class Player {
         int Z = in.nextInt(); // number of zones on the map (4 to 8)
 
         int numberOfPlayer = P;
-        int myId = ID;
         int numberOfDronePerTeam = D;
         int numberOfZone = Z;
 
         List<Zone> zonesInGame = new ArrayList<>();
         List<DronePlayer> dronePlayerList;
-        Map<Integer, Drone> dronesMap;
-
+        DronePlayer me = new DronePlayer();
 
         for (int i = 0; i < numberOfZone; i++) {
             int X = in.nextInt(); // corresponds to the position of the center of a zone. A zone is a circle with a radius of 100 units.
             int Y = in.nextInt();
             //Récupération des zones de la partie
             Zone zone = new Zone(X, Y);
+            zone.setId(i);
             zonesInGame.add(zone);
         }
 
@@ -38,7 +38,6 @@ class Player {
         while (true) {
 
             //Réinitialisation des collections pour chaque tours
-            dronesMap = new HashMap<>();
             dronePlayerList = new ArrayList<>();
 
             for (int i = 0; i < numberOfZone; i++) {
@@ -60,42 +59,108 @@ class Player {
 
                     //Récupération des drones de la partie et assignation aux joueurs
                     Drone drone = new Drone(coordX, coordY);
+                    drone.setOwner(dronePlayer);
                     droneList.add(drone);
                     dronePlayer.setDrones(droneList);
-                    dronesMap.put(i, drone);
+
+
+                    drone.setZonesByDistance(getZonesSortedByDistance(drone, zonesInGame));
 
                 }
+
+                if(ID == i){
+                    me = dronePlayer;
+                }
+
             }
 
-            int indexOfZone = 0;
-            for (int i = 0; i < numberOfDronePerTeam; i++) {
+            System.err.println("more points " + whosGettingMorePoints(zonesInGame, dronePlayerList));
 
-                System.err.println("drone index avant" + i);
-                System.err.println("index of zone avant"+indexOfZone);
-                System.err.println("coord to go avant" + zonesInGame.get(indexOfZone).getCoord());
+            affecterTarget(zonesInGame, me.getDrones(), numberOfZone);
 
-                System.out.println(zonesInGame.get(indexOfZone).getCoord());
+            for (Drone d : dronePlayerList.get(me.playerId).getDrones()) {
 
-                indexOfZone = (indexOfZone == numberOfZone - 1) ?  0 : indexOfZone+1;
-
-                System.err.println("drone index apres" + i);
-                System.err.println("index of zone apres"+indexOfZone);
-                System.err.println("coord to go apres" + zonesInGame.get(indexOfZone).getCoord());
+                System.out.println(d.initialTarget.getCoord());
 
             }
 
         }
     }
 
+
+    static int whosGettingMorePoints (List<Zone> zonesInGame, List<DronePlayer> dronePlayerList){
+
+        System.err.println("size drone "+ dronePlayerList.size());
+        System.err.println("size zone "+ zonesInGame.size());
+
+        Map<Integer, Integer> playerScorePlayerIdTreeMap = new TreeMap<>();
+
+        dronePlayerList.stream().forEach(
+                player -> playerScorePlayerIdTreeMap.put(
+                                (int)zonesInGame.stream().filter(zone -> zone.getControllingPlayerId() != player.getPlayerId()).count(),
+                                player.getPlayerId()));
+
+        System.err.println("size "+ playerScorePlayerIdTreeMap.size());
+
+        if(playerScorePlayerIdTreeMap.isEmpty()){
+            return -1;
+        }else {
+            return ((TreeMap<Integer, Integer>) playerScorePlayerIdTreeMap).firstEntry().getValue();
+        }
+    }
+
+    static void affecterTarget(List<Zone> zones, List<Drone> drones, int numberOfZone) {
+
+        for (int i = 0; i < drones.size(); i++) {
+            Drone d = drones.get(i);
+            int zoneId = d.getZonesByDistance().get(0);
+            Zone zoneToTarget = zones.get(zoneId);
+            d.setInitialTarget(zoneToTarget);
+        }
+
+    }
+
+
+    //Renvoie, pour chaque drone, la liste des zones par ordre croissant d'éloignement
+    static List<Integer> getZonesSortedByDistance(Drone drone, List<Zone> zones) {
+        TreeMap<Integer, Integer> zoneDistanceZoneIndexTreeMap = new TreeMap<>();
+        zones.stream().forEach(z -> zoneDistanceZoneIndexTreeMap.put(calculateDistance(drone, z), z.getId()));
+        return zoneDistanceZoneIndexTreeMap.values().stream().collect(Collectors.toList());
+    }
+
+
+    static int calculateDistance(Drone drone, Zone zone) {
+
+
+        int i = (int) sqrt(
+                addExact(
+                        (long) (pow((double) subtractExact(drone.getCoordX(), zone.getCoordX()), 2D)),
+                        (long) (pow((double) subtractExact(drone.getCoordY(), zone.getCoordY()), 2D))
+                )
+        );
+        return i;
+    }
+
+
     public static class Zone {
+
         private int coordX;
         private int coordY;
         private int numberOfDroneOver;
         private int controllingPlayerId;
+        private int id;
 
         public Zone(int coordX, int coordY) {
             this.coordX = coordX;
             this.coordY = coordY;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
         }
 
         public int getCoordX() {
@@ -130,13 +195,24 @@ class Player {
             this.controllingPlayerId = controllingPlayerId;
         }
 
-        public String getCoord(){
-            return coordX+" "+coordY;
+        public String getCoord() {
+            return coordX + " " + coordY;
         }
 
+        @Override
+        public String toString() {
+            return "Zone{" +
+                    "coordX=" + coordX +
+                    ", coordY=" + coordY +
+                    ", numberOfDroneOver=" + numberOfDroneOver +
+                    ", controllingPlayerId=" + controllingPlayerId +
+                    ", id=" + id +
+                    '}';
+        }
     }
 
     public static class DronePlayer {
+
         private int playerId;
         private List<Drone> drones;
 
@@ -165,14 +241,34 @@ class Player {
     }
 
     public static class Drone {
+
         private int id;
         private int coordX;
         private int coordY;
         private DronePlayer owner;
+        //List triée par ordre d'éloignement du drone à l'Id des différentes zones
+        private List<Integer> zonesByDistance;
+        private Zone initialTarget;
 
         public Drone(int coordX, int coordY) {
             this.coordX = coordX;
             this.coordY = coordY;
+        }
+
+        public Zone getInitialTarget() {
+            return initialTarget;
+        }
+
+        public void setInitialTarget(Zone initialTarget) {
+            this.initialTarget = initialTarget;
+        }
+
+        public List<Integer> getZonesByDistance() {
+            return zonesByDistance;
+        }
+
+        public void setZonesByDistance(List<Integer> zonesByDistance) {
+            this.zonesByDistance = zonesByDistance;
         }
 
         public int getId() {
@@ -205,6 +301,24 @@ class Player {
 
         public void setOwner(DronePlayer owner) {
             this.owner = owner;
+        }
+
+        @Override
+        public String toString() {
+
+            String zoneByDistance = "";
+            if(this.zonesByDistance != null){
+                for (Integer i : this.zonesByDistance){
+                    zoneByDistance+= i.toString() + " / ";
+                }
+            }
+
+
+            return  "id = " + this.id
+                    + " coordX = " + this.coordX
+                    + "coordY = " + this.coordY
+                    + "owner = " + this.owner.getPlayerId()
+                    + " ZoneByDistance =  " + zoneByDistance;
         }
     }
 

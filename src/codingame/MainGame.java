@@ -78,6 +78,7 @@ class Player {
             }
 
             analyseDronePositionOverZone(zonesInGame, dronePlayerList);
+            defenseFlagAffecter(zonesInGame, me.getDrones(),ID);
 
             System.err.println("more points " + whosGettingMorePoints(zonesInGame, dronePlayerList));
 
@@ -86,7 +87,6 @@ class Player {
             for (Drone d : dronePlayerList.get(me.playerId).getDrones()) {
 
                 System.out.println(d.initialTarget.getCoord());
-
             }
 
         }
@@ -101,13 +101,12 @@ class Player {
                             && (z.getCoordY() - 100 < drone.getCoordY() && z.getCoordY() + 100 > drone.getCoordY())) {
 
                         z.getPlayerIdNumberOfDroneOver().put(d.getPlayerId(), drone.getId());
-
+                        drone.setFlyingOverZone(z);
                     }
                 }
             }
         }
     }
-
 
 
     static int whosGettingMorePoints(List<Zone> zonesInGame, List<DronePlayer> dronePlayerList) {
@@ -127,18 +126,66 @@ class Player {
         }
     }
 
-    static void targetAffecter(List<Zone> zones, List<Drone> drones) {
 
-        for (int i = 0; i < drones.size(); i++) {
-            Drone d = drones.get(i);
-            if (d.getZonesByDistance() != null && !d.getZonesByDistance().isEmpty()) {
-                int zoneId = d.getZonesByDistance().get(0);
-                Zone zoneToTarget = zones.get(zoneId);
-                d.setInitialTarget(zoneToTarget);
+    static void targetAffecter(List<Zone> zones, List<Drone> myDrones) {
+
+        myDrones.stream().forEach(drone -> {
+            if (drone.getZonesByDistance() != null && !drone.getZonesByDistance().isEmpty()) {
+                drone.setInitialTarget(zones.get(drone.getZonesByDistance().get(0)));
             } else {
-                d.setInitialTarget(new Zone(d.getCoordX(), d.getCoordY()));
+                drone.setInitialTarget(new Zone(drone.getCoordX(), drone.getCoordY()));
             }
+        });
+
+    }
+
+
+    static void defenseFlagAffecter(List<Zone> zones, List<Drone> myDrones, int myId) {
+        setDefendFlag(zones,
+                myDrones.stream().filter(drone -> drone.getFlyingOverZone() != null
+                        && drone.getFlyingOverZone().numberOfDroneOver > 1
+                        && drone.getFlyingOverZone().getControllingPlayerId() != myId).collect(Collectors.toList()),
+                myId);
+    }
+
+
+    static boolean setDefendFlag(List<Zone> zones, List<Drone> myFilteredDrones, int myId) {
+
+        for (Zone z : zones) {
+            int defenderCount = 0;
+            int myDronesInZone = z.getPlayerIdNumberOfDroneOver().get(myId);
+            int maxEnnemyDrone = z.getPlayerIdNumberOfDroneOver()
+                    .values()
+                    .stream()
+                    .collect(Collectors.summarizingInt(Integer::intValue))
+                    .getMax();
+
+            boolean needSomeDefenders = false;
+
+            for(int i : z.getPlayerIdNumberOfDroneOver().values()){
+                if(myDronesInZone >= i){
+                    needSomeDefenders = true;
+                }
+            }
+
+            if(needSomeDefenders){
+                for (Drone myDrone : myFilteredDrones){
+
+                    if(defenderCount <= maxEnnemyDrone){
+                        myDrone.setDefendingZone(true);
+                        defenderCount++;
+                    }
+
+                }
+            }
+
         }
+
+    }
+
+    static Predicate<Drone> test(int myId) {
+        return drone -> drone.
+
 
     }
 
@@ -150,23 +197,23 @@ class Player {
         return zoneDistanceZoneIndexTreeMap.values().stream().collect(Collectors.toList());
     }
 
-    static List<Zone> substractSafeZone(List<Zone> zonesSortedByDistance, int myId){
-         return zonesSortedByDistance.stream().filter(ZoneInDanger(myId)).collect(Collectors.toList());
+
+    static List<Zone> substractSafeZone(List<Zone> zonesSortedByDistance, int myId) {
+        return zonesSortedByDistance.stream().filter(ZoneInDanger(myId)).collect(Collectors.toList());
     }
 
     static Predicate<Zone> ZoneInDanger(int myId) {
-        return z -> z.getControllingPlayerId() != myId ;
+        return z -> z.getControllingPlayerId() != myId;
     }
 
 
     static int calculateDistance(Drone drone, Zone zone) {
-        int i = (int) sqrt(
+        return (int) sqrt(
                 addExact(
                         (long) (pow((double) subtractExact(drone.getCoordX(), zone.getCoordX()), 2D)),
                         (long) (pow((double) subtractExact(drone.getCoordY(), zone.getCoordY()), 2D))
                 )
         );
-        return i;
     }
 
 
@@ -185,7 +232,7 @@ class Player {
             this.playerIdNumberOfDroneOver = new HashMap<>();
         }
 
-        public Map<Integer, Integer> getPlayerIdNumberOfDroneOver() {
+        Map<Integer, Integer> getPlayerIdNumberOfDroneOver() {
             return playerIdNumberOfDroneOver;
         }
 
@@ -193,47 +240,47 @@ class Player {
             this.playerIdNumberOfDroneOver = playerIdNumberOfDroneOver;
         }
 
-        public int getId() {
+        int getId() {
             return id;
         }
 
-        public void setId(int id) {
+        void setId(int id) {
             this.id = id;
         }
 
-        public int getCoordX() {
+        int getCoordX() {
             return coordX;
         }
 
-        public void setCoordX(int coordX) {
+        void setCoordX(int coordX) {
             this.coordX = coordX;
         }
 
-        public int getCoordY() {
+        int getCoordY() {
             return coordY;
         }
 
-        public void setCoordY(int coordY) {
+        void setCoordY(int coordY) {
             this.coordY = coordY;
         }
 
-        public int getNumberOfDroneOver() {
+        int getNumberOfDroneOver() {
             return numberOfDroneOver;
         }
 
-        public void setNumberOfDroneOver(int numberOfDroneOver) {
+        void setNumberOfDroneOver(int numberOfDroneOver) {
             this.numberOfDroneOver = numberOfDroneOver;
         }
 
-        public int getControllingPlayerId() {
+        int getControllingPlayerId() {
             return controllingPlayerId;
         }
 
-        public void setControllingPlayerId(int controllingPlayerId) {
+        void setControllingPlayerId(int controllingPlayerId) {
             this.controllingPlayerId = controllingPlayerId;
         }
 
-        public String getCoord() {
+        String getCoord() {
             return coordX + " " + coordY;
         }
 
@@ -249,36 +296,36 @@ class Player {
         }
     }
 
-    public static class DronePlayer {
+    static class DronePlayer {
 
         private int playerId;
         private List<Drone> drones;
 
-        public DronePlayer() {
+        DronePlayer() {
         }
 
-        public DronePlayer(int playerId) {
+        DronePlayer(int playerId) {
             this.playerId = playerId;
         }
 
-        public int getPlayerId() {
+        int getPlayerId() {
             return playerId;
         }
 
-        public void setPlayerId(int playerId) {
+        void setPlayerId(int playerId) {
             this.playerId = playerId;
         }
 
-        public List<Drone> getDrones() {
+        List<Drone> getDrones() {
             return drones;
         }
 
-        public void setDrones(List<Drone> drones) {
+        void setDrones(List<Drone> drones) {
             this.drones = drones;
         }
     }
 
-    public static class Drone {
+    static class Drone {
 
         private int id;
         private int coordX;
@@ -287,57 +334,75 @@ class Player {
         //List triée par ordre d'éloignement du drone à l'Id des différentes zones
         private List<Integer> zonesByDistance;
         private Zone initialTarget;
+        private Zone flyingOverZone;
+        private boolean defendingZone;
 
-        public Drone(int coordX, int coordY) {
+        Drone(int coordX, int coordY) {
             this.coordX = coordX;
             this.coordY = coordY;
         }
 
-        public Zone getInitialTarget() {
+        boolean isDefendingZone() {
+            return defendingZone;
+        }
+
+        void setDefendingZone(boolean defendingZone) {
+            this.defendingZone = defendingZone;
+        }
+
+        Zone getFlyingOverZone() {
+            return flyingOverZone;
+        }
+
+        void setFlyingOverZone(Zone flyingOverZone) {
+            this.flyingOverZone = flyingOverZone;
+        }
+
+        Zone getInitialTarget() {
             return initialTarget;
         }
 
-        public void setInitialTarget(Zone initialTarget) {
+        void setInitialTarget(Zone initialTarget) {
             this.initialTarget = initialTarget;
         }
 
-        public List<Integer> getZonesByDistance() {
+        List<Integer> getZonesByDistance() {
             return zonesByDistance;
         }
 
-        public void setZonesByDistance(List<Integer> zonesByDistance) {
+        void setZonesByDistance(List<Integer> zonesByDistance) {
             this.zonesByDistance = zonesByDistance;
         }
 
-        public int getId() {
+        int getId() {
             return id;
         }
 
-        public void setId(int id) {
+        void setId(int id) {
             this.id = id;
         }
 
-        public int getCoordX() {
+        int getCoordX() {
             return coordX;
         }
 
-        public void setCoordX(int coordX) {
+        void setCoordX(int coordX) {
             this.coordX = coordX;
         }
 
-        public int getCoordY() {
+        int getCoordY() {
             return coordY;
         }
 
-        public void setCoordY(int coordY) {
+        void setCoordY(int coordY) {
             this.coordY = coordY;
         }
 
-        public DronePlayer getOwner() {
+        DronePlayer getOwner() {
             return owner;
         }
 
-        public void setOwner(DronePlayer owner) {
+        void setOwner(DronePlayer owner) {
             this.owner = owner;
         }
 

@@ -130,7 +130,9 @@ class Player {
     static void targetAffecter(List<Zone> zones, List<Drone> myDrones) {
 
         myDrones.stream().forEach(drone -> {
-            if (drone.getZonesByDistance() != null && !drone.getZonesByDistance().isEmpty()) {
+            if(drone.isDefendingZone()){
+                drone.setInitialTarget(drone.getFlyingOverZone());
+            }else if (drone.getZonesByDistance() != null && !drone.getZonesByDistance().isEmpty()) {
                 drone.setInitialTarget(zones.get(drone.getZonesByDistance().get(0)));
             } else {
                 drone.setInitialTarget(new Zone(drone.getCoordX(), drone.getCoordY()));
@@ -148,10 +150,21 @@ class Player {
                 myId);
     }
 
+    static List<Zone> getZonesWhereIHaveSomeDrones(List<Zone> zones){
+        return zones.stream()
+                .filter(
+                        zone -> zone.getPlayerIdNumberOfDroneOver()
+                                .keySet()
+                                .contains(myId))
+                .collect(Collectors.toList()
+                );
+    }
 
-    static boolean setDefendFlag(List<Zone> zones, List<Drone> myFilteredDrones, int myId) {
+    static void setDefendFlag(List<Zone> zones, List<Drone> myFilteredDrones, int myId) {
 
-        for (Zone z : zones) {
+        List<Zone> zonesWhereIHaveDrones = getZonesWhereIHaveSomeDrones(zones);
+
+        for (Zone z : zonesWhereIHaveDrones) {
             int defenderCount = 0;
             int myDronesInZone = z.getPlayerIdNumberOfDroneOver().get(myId);
             int maxEnnemyDrone = z.getPlayerIdNumberOfDroneOver()
@@ -182,13 +195,6 @@ class Player {
         }
 
     }
-
-    static Predicate<Drone> test(int myId) {
-        return drone -> drone.
-
-
-    }
-
 
     //Renvoie, pour chaque drone, la liste des zones par ordre croissant d'éloignement. On retire à la volé les zones déjà controllées.
     static List<Integer> getTargetZonesSortedByDistance(Drone drone, List<Zone> zones, int myId) {

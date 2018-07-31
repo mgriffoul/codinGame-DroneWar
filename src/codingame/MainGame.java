@@ -13,7 +13,10 @@ import static java.lang.Math.*;
 class Player {
 
     public static void main(String args[]) {
+
+
         Scanner in = new Scanner(System.in);
+
 
         int P = in.nextInt(); // number of players in the game (2 to 4 players)
         int ID = in.nextInt(); // ID of your player (0, 1, 2, or 3)
@@ -40,6 +43,7 @@ class Player {
         // game loop
         while (true) {
 
+
             //Réinitialisation des collections pour chaque tours
             dronePlayerList = new ArrayList<>();
 
@@ -52,6 +56,7 @@ class Player {
             for (int i = 0; i < numberOfPlayer; i++) {
                 //Récupération des joueurs de la partie
                 DronePlayer dronePlayer = new DronePlayer(i);
+                dronePlayer.setPlayerId(i);
                 dronePlayerList.add(dronePlayer);
 
                 //Traitement des drones
@@ -62,10 +67,10 @@ class Player {
 
                     //Récupération des drones de la partie et assignation aux joueurs
                     Drone drone = new Drone(coordX, coordY);
+                    drone.setId(j);
                     drone.setOwner(dronePlayer);
                     droneList.add(drone);
                     dronePlayer.setDrones(droneList);
-
 
                     drone.setZonesByDistance(getTargetZonesSortedByDistance(drone, zonesInGame, ID));
 
@@ -85,29 +90,36 @@ class Player {
                 System.out.println(d.targetCoord);
             }
 
+
         }
+
     }
 
     // Set la liste des drone au dessus d'une zone par id de joueur et le nombre de drone total au dessus d'une zone
     static void analyseDronePositionOverZone(List<Zone> zones, List<DronePlayer> dronePlayerList) {
 
+
+        //System.err.println("analyse Drone position : ");
         for (Zone z : zones) {
             int numberTotalOfDrones = 0;
+            // System.err.println("Pour la zone : "+z.getId());
             for (DronePlayer d : dronePlayerList) {
-
+                // System.err.println("Pour le joueur : "+d.getPlayerId());
                 int numberOfDrones = 0;
                 for (Drone drone : d.getDrones()) {
-                    if ((z.getCoordX() - 100 <= drone.getCoordX() && z.getCoordX() + 100 >= drone.getCoordX())
-                            && (z.getCoordY() - 100 <= drone.getCoordY() && z.getCoordY() + 100 >= drone.getCoordY())) {
 
+                    if (calculateDistance(drone, z) <= 100) {
                         numberOfDrones++;
                         drone.setFlyingOverZone(z);
                     }
                 }
 
                 z.getPlayerIdNumberOfDroneOver().put(d.getPlayerId(), numberOfDrones);
+                System.err.println("a été put pour le joueur " + d.getPlayerId() + " " + numberOfDrones + " drones dans la zone " + z.getId());
                 numberTotalOfDrones += numberOfDrones;
             }
+            // System.err.println("Nombre total Final de drones : " + numberTotalOfDrones);
+            // System.err.println("///////////////////////////////////////////////////");
             z.setNumberOfDroneOver(numberTotalOfDrones);
         }
 
@@ -144,43 +156,56 @@ class Player {
     }
 
     static void affectDefenderFlag(List<Zone> zones, List<Drone> myDrones, int myId) {
-        removeNotInZone(myDrones);
-        removeDronesWithoutConcurrence(myDrones);
-        setDefendFlag(getZonesWhereIHaveSomeDrones(zones, myId), myDrones, myId);
+
+        myDrones = removeNotInZone(myDrones);
+        myDrones = removeDronesWithoutConcurrence(myDrones);
+
+        if (!myDrones.isEmpty()) {
+            setDefendFlag(getZonesWhereIHaveSomeDrones(zones, myId), myDrones, myId);
+        }
+
     }
 
-    static void removeNotInZone(List<Drone> drones) {
-        drones.stream().filter(drone -> drone.getFlyingOverZone() != null);
+    static List<Drone> removeNotInZone(List<Drone> drones) {
+
+        return drones.stream().filter(drone -> drone.getFlyingOverZone() != null).collect(Collectors.toList());
     }
 
-    static void removeDronesWithoutConcurrence(List<Drone> drones) {
-        drones.stream().filter(drone -> drone.getFlyingOverZone().getNumberOfDroneOver() > 1);
+    static List<Drone> removeDronesWithoutConcurrence(List<Drone> drones) {
+        return drones.stream().filter(drone -> drone.getFlyingOverZone().getNumberOfDroneOver() > 1).collect(Collectors.toList());
     }
 
     static void setDefendFlag(List<Zone> zones, List<Drone> myDrones, int myId) {
 
         for (Zone z : zones) {
-
             int numberOfMyDronesInZone = z.getPlayerIdNumberOfDroneOver().get(myId);
-            int maxEnnemyDrone = getNumberMaxOfEnnemyDrone(z);
+            int maxEnnemyDrone = getNumberMaxOfEnnemyDrone(z, myId);
 
-            filterDroneByZone(myDrones, z);
+            List<Drone> drones = filterDroneByZone(myDrones, z);
 
-            if (doesZoneNeedDefenders(z, numberOfMyDronesInZone, myId, maxEnnemyDrone)) {
-                for(int i = 0 ; i < maxEnnemyDrone ; i++){
-                    myDrones.get(i).setDefendingZone(true);
-                }
+            if (!drones.isEmpty() && doesZoneNeedDefenders(z, numberOfMyDronesInZone, myId, maxEnnemyDrone)) {
+
+                int i = 0;
+                do {
+                    drones.get(i).setDefendingZone(true);
+                    i++;
+                }while (i < maxEnnemyDrone -1);
+
             }
         }
 
     }
 
-    static void filterDroneByZone(List<Drone> drones, Zone z) {
-        drones.stream().filter(drone -> drone.getFlyingOverZone().getId() == z.getId());
+    static List<Drone> filterDroneByZone(List<Drone> drones, Zone z) {
+        return drones.stream().filter(drone -> calculateDistance(drone, z)<=100).collect(Collectors.toList());
     }
 
-    static int getNumberMaxOfEnnemyDrone(Zone z) {
-        return z.getPlayerIdNumberOfDroneOver()
+    //TODO peux mieux faire !
+    static int getNumberMaxOfEnnemyDrone(Zone z, int myId) {
+        Map<Integer, Integer> mapWithoutMe = z.getPlayerIdNumberOfDroneOver();
+        mapWithoutMe.remove(myId);
+
+        return mapWithoutMe
                 .values()
                 .stream()
                 .collect(Collectors.summarizingInt(Integer::intValue))

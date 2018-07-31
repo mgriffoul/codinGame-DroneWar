@@ -78,8 +78,8 @@ class Player {
             }
 
             analyseDronePositionOverZone(zonesInGame, dronePlayerList);
-            affectDefenderFlag(zonesInGame, me.getDrones(),ID);
-            targetAffecter(zonesInGame, me.getDrones());
+            affectDefenderFlag(zonesInGame, me.getDrones(), ID);
+            affectTarget(zonesInGame, me.getDrones());
 
             for (Drone d : dronePlayerList.get(me.playerId).getDrones()) {
                 System.out.println(d.targetCoord);
@@ -106,7 +106,7 @@ class Player {
                 }
 
                 z.getPlayerIdNumberOfDroneOver().put(d.getPlayerId(), numberOfDrones);
-                numberTotalOfDrones+=numberOfDrones;
+                numberTotalOfDrones += numberOfDrones;
             }
             z.setNumberOfDroneOver(numberTotalOfDrones);
         }
@@ -128,18 +128,17 @@ class Player {
         }
     }
 
-    static void targetAffecter(List<Zone> zones, List<Drone> myDrones) {
+    static void affectTarget(List<Zone> zones, List<Drone> myDrones) {
 
         myDrones.stream().forEach(drone -> {
-            if(drone.isDefendingZone()){
-                System.err.println("Affect target defending in" + drone.getCoordX()+" "+drone.getCoordY());
-                drone.setTargetCoord(String.valueOf(drone.coordX) + " " +String.valueOf(drone.coordY));
-            }else if (!drone.isDefendingZone() && drone.getZonesByDistance() != null && !drone.getZonesByDistance().isEmpty()) {
-                drone.setTargetCoord(zones.get(drone.getZonesByDistance().get(0)).getCoord());
-            } else {
-                drone.setTargetCoord(drone.getCoordX()+" "+ drone.getCoordY());
-            }
-        }
+                    if (drone.isDefendingZone()) {
+                        drone.setTargetCoord(drone.getCoordX() + " " + drone.getCoordY());
+                    } else if (!drone.isDefendingZone() && drone.getZonesByDistance() != null && !drone.getZonesByDistance().isEmpty()) {
+                        drone.setTargetCoord(zones.get(drone.getZonesByDistance().get(0)).getCoord());
+                    } else {
+                        drone.setTargetCoord(drone.getCoordX() + " " + drone.getCoordY());
+                    }
+                }
         );
 
     }
@@ -150,11 +149,11 @@ class Player {
         setDefendFlag(getZonesWhereIHaveSomeDrones(zones, myId), myDrones, myId);
     }
 
-    static void removeNotInZone(List<Drone> drones){
+    static void removeNotInZone(List<Drone> drones) {
         drones.stream().filter(drone -> drone.getFlyingOverZone() != null);
     }
 
-    static void removeDronesWithoutConcurrence(List<Drone> drones){
+    static void removeDronesWithoutConcurrence(List<Drone> drones) {
         drones.stream().filter(drone -> drone.getFlyingOverZone().getNumberOfDroneOver() > 1);
     }
 
@@ -162,42 +161,33 @@ class Player {
 
         for (Zone z : zones) {
 
-            int defenderCount = 0;
             int numberOfMyDronesInZone = z.getPlayerIdNumberOfDroneOver().get(myId);
             int maxEnnemyDrone = getNumberMaxOfEnnemyDrone(z);
 
             filterDroneByZone(myDrones, z);
 
-            if(needSomeDefender(z, numberOfMyDronesInZone, myId)){
-
-                for (Drone myDrone : myDrones){
-                    if(defenderCount < maxEnnemyDrone){
-                        System.err.println("defenderCount " + defenderCount+" / maxEnnemyDrone "+maxEnnemyDrone);
-                        myDrone.setDefendingZone(true);
-                        defenderCount++;
-
-                    }
-
+            if (doesZoneNeedDefenders(z, numberOfMyDronesInZone, myId, maxEnnemyDrone)) {
+                for(int i = 0 ; i < maxEnnemyDrone ; i++){
+                    myDrones.get(i).setDefendingZone(true);
                 }
             }
-
         }
 
     }
 
-    static void filterDroneByZone(List<Drone> drones, Zone z){
-        drones.stream().filter(drone-> drone.getFlyingOverZone().getId() == z.getId()).collect(Collectors.toList());
+    static void filterDroneByZone(List<Drone> drones, Zone z) {
+        drones.stream().filter(drone -> drone.getFlyingOverZone().getId() == z.getId());
     }
 
-    static int getNumberMaxOfEnnemyDrone(Zone z){
-       return z.getPlayerIdNumberOfDroneOver()
+    static int getNumberMaxOfEnnemyDrone(Zone z) {
+        return z.getPlayerIdNumberOfDroneOver()
                 .values()
                 .stream()
                 .collect(Collectors.summarizingInt(Integer::intValue))
                 .getMax();
     }
 
-    static List<Zone> getZonesWhereIHaveSomeDrones(List<Zone> zones, int myId){
+    static List<Zone> getZonesWhereIHaveSomeDrones(List<Zone> zones, int myId) {
         return zones.stream()
                 .filter(
                         zone -> zone.getPlayerIdNumberOfDroneOver()
@@ -207,14 +197,13 @@ class Player {
                 );
     }
 
-    static boolean needSomeDefender(Zone z, int numberOfMyDronesInZone, int myId){
+    static boolean doesZoneNeedDefenders(Zone z, int myDronesInZone, int myId, int maxEnnemyDrone) {
 
-        for(int i : z.getPlayerIdNumberOfDroneOver().values()){
-            if( numberOfMyDronesInZone!= 0 && z.getControllingPlayerId()==myId){
-                return  true;
+        for (int i : z.getPlayerIdNumberOfDroneOver().values()) {
+            if (myDronesInZone > 0 && z.getControllingPlayerId() == myId && maxEnnemyDrone > 0) {
+                return true;
             }
         }
-
         return false;
     }
 
@@ -320,7 +309,7 @@ class Player {
                     ", numberOfDroneOver=" + numberOfDroneOver +
                     ", controllingPlayerId=" + controllingPlayerId +
                     ", id=" + id +
-                    ", map size="+playerIdNumberOfDroneOver.size()+
+                    ", map size=" + playerIdNumberOfDroneOver.size() +
                     '}';
         }
     }
